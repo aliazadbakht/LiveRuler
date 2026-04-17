@@ -151,10 +151,10 @@ selected_file_data = None
 async def handle_file(event):
     global selected_file_data
     try:
-        # Get the JS file object directly
+        # Get the JS file object correctly
         files = event.target.files
         if files.length > 0:
-            file = files[0]
+            file = files.item(0)
             print(f"File selected: {file.name}")
             
             document.querySelector('.upload-card h3').textContent = "Reading file..."
