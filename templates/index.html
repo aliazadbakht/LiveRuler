@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LiveRuler - Microscope Calibration Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="logo-area">
+                <div class="logo-icon"></div>
+                <h1>LiveRuler</h1>
+                <p style="font-size: 0.6rem; color: var(--text-dim); margin-top: -15px; margin-left: 45px; font-weight: 600; letter-spacing: 0.5px;">by Precisometer</p>
+            </div>
+            <nav class="history-panel">
+                <div class="section-title">Calibration History</div>
+                <div id="history-list" class="history-list">
+                    <!-- History items will be injected here -->
+                    <div class="empty-msg">No calibration yet</div>
+                </div>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header>
+                <div class="header-left">
+                    <h2>LiveRuler Calibration Dashboard</h2>
+                    <div class="status-badge">Powered by Precisometer</div>
+                </div>
+                <div class="header-right">
+                    <img src="/static/precisometer_logo.png" alt="LiveRuler Logo" class="brand-logo">
+                </div>
+            </header>
+
+            <section class="calibration-hero">
+                <div class="card upload-card" id="drop-zone">
+                    <div class="upload-content">
+                        <div class="upload-icon"></div>
+                        <h3>Upload Calibration Image</h3>
+                        <p>Drag and drop your 10µm ruler or grid image here</p>
+                        <input type="file" id="file-input" hidden accept="image/*">
+                        <button class="btn btn-primary" onclick="document.getElementById('file-input').click()">Select File</button>
+                    </div>
+                </div>
+
+                <div class="card settings-card">
+                    <div class="section-title">Calibration Settings</div>
+                    <div class="form-group">
+                        <label>Target Type</label>
+                        <div class="radio-group">
+                            <label class="radio-label">
+                                <input type="radio" name="target-type" value="ruler" checked> 10 µm Ruler
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="target-type" value="grid"> 100 µm Grid
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Spacing (µm)</label>
+                        <input type="number" id="spacing-input" value="10.0" step="0.1">
+                    </div>
+                    <button class="btn btn-glow" id="run-btn">Run Analysis</button>
+                </div>
+            </section>
+
+            <section class="results-container" id="results-view" style="display: none;">
+                <div class="results-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <div class="section-title" style="margin-bottom: 0;">Analysis Results</div>
+                    <button class="copy-btn" onclick="document.getElementById('results-view').style.display='none'">Close Results</button>
+                </div>
+                <div class="results-grid">
+                    <div class="card result-card" style="grid-column: span 2;">
+                        <span class="label">PIXEL SCALE</span>
+                        <div class="value-row">
+                            <span id="scale-val" class="main-value">0.000000</span>
+                            <button class="copy-btn" onclick="copyText('scale-val')">Copy</button>
+                        </div>
+                    </div>
+                    <div class="card alignment-card">
+                        <span class="label">ORIENTATION</span>
+                        <div class="value-row">
+                            <span id="tilt-angle-val" class="main-value">0.00°</span>
+                            <span class="badge success">Corrected</span>
+                        </div>
+                    </div>
+                    <div class="card metadata-card">
+                        <span class="label">RESOLUTION</span>
+                        <div class="value-row">
+                            <span id="resolution-val" class="main-value">0 x 0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="candidates-section" style="margin-top: 20px; display: none;">
+                    <span class="label" style="font-size: 0.75rem; color: var(--accent); font-weight: 700;">OTHER CANDIDATE PEAKS FOUND:</span>
+                    <div id="candidates-list" style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px;">
+                        <!-- Buttons will be injected here -->
+                    </div>
+                    <p style="font-size: 0.8rem; color: var(--text-dim); margin-top: 10px;">If the main result seems wrong, click one of these alternative peaks from the spectrum.</p>
+                </div>
+
+                <div class="card visual-verification">
+                    <div class="section-title">Visual Verification</div>
+                    <div class="debug-img-container">
+                        <img id="debug-img" src="" alt="Calibration Debug View">
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Toast for notifications -->
+    <div id="toast" class="toast">Copied to clipboard!</div>
+
+    <script src="/static/js/main.js"></script>
+</body>
+</html>

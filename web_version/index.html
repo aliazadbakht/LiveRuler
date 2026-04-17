@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LiveRuler Web - Microscope Calibration</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="static/css/style.css">
+    <!-- PyScript JS/CSS -->
+    <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css" />
+    <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
+    <style>
+        .loading-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(10, 11, 13, 0.9);
+            display: flex; flex-direction: column; 
+            align-items: center; justify-content: center;
+            z-index: 9999;
+        }
+        .spinner {
+            width: 50px; height: 50px;
+            border: 3px solid rgba(0, 122, 255, 0.3);
+            border-top: 3px solid var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        #history-list { font-size: 0.8rem; }
+        .pyscript-hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div id="loading" class="loading-overlay">
+        <div class="spinner"></div>
+        <p>Loading Python Environment...</p>
+        <p style="font-size: 0.8rem; color: #666; margin-top: 10px;">(This may take a few seconds on first load)</p>
+    </div>
+
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="logo-area">
+                <div class="logo-icon"></div>
+                <h1>LiveRuler <span style="font-size: 0.6rem; color: var(--accent); vertical-align: super;">WEB</span></h1>
+                <p style="font-size: 0.55rem; color: var(--text-dim); margin-top: -15px; margin-left: 45px; font-weight: 600;">by Precisometer</p>
+            </div>
+            <nav class="history-panel">
+                <div class="section-title">Calibration History</div>
+                <div id="history-list" class="history-list">
+                    <div class="empty-msg">No calibration yet</div>
+                </div>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header>
+                <div class="header-left">
+                    <h2>LiveRuler Calibration Dashboard</h2>
+                    <div class="status-badge">Powered by Precisometer</div>
+                </div>
+                <!-- Removed local logo reference for portability -->
+            </header>
+
+            <section class="calibration-hero">
+                <div class="card upload-card" id="drop-zone">
+                    <div class="upload-content">
+                        <div class="upload-icon"></div>
+                        <h3>Upload Calibration Image</h3>
+                        <p>Drag and drop your 10µm ruler or grid image here</p>
+                        <input type="file" id="file-input" hidden accept="image/*">
+                        <button class="btn btn-primary" id="select-btn">Select File</button>
+                    </div>
+                </div>
+
+                <div class="card settings-card">
+                    <div class="section-title">Calibration Settings</div>
+                    <div class="form-group">
+                        <label>Target Type</label>
+                        <div class="radio-group">
+                            <label class="radio-label">
+                                <input type="radio" name="target-type" value="ruler" checked> 10 µm Ruler
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="target-type" value="grid"> 100 µm Grid
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Spacing (µm)</label>
+                        <input type="number" id="spacing-input" value="10.0" step="0.1">
+                    </div>
+                    <button class="btn btn-glow" id="run-btn" disabled>Waiting for Runtime...</button>
+                </div>
+            </section>
+
+            <section class="results-container" id="results-view" style="display: none;">
+                <div class="results-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <div class="section-title" style="margin-bottom: 0;">Analysis Results</div>
+                    <button class="copy-btn" id="close-btn">Close Results</button>
+                </div>
+                <div class="results-grid">
+                    <div class="card result-card" style="grid-column: span 2;">
+                        <span class="label">PIXEL SCALE</span>
+                        <div class="value-row">
+                            <span id="scale-val" class="main-value">0.000000</span>
+                            <button class="copy-btn" id="copy-btn">Copy</button>
+                        </div>
+                    </div>
+                    <div class="card alignment-card">
+                        <span class="label">ORIENTATION</span>
+                        <div class="value-row">
+                            <span id="tilt-angle-val" class="main-value">0.00°</span>
+                            <span class="badge success">Corrected</span>
+                        </div>
+                    </div>
+                    <div class="card metadata-card">
+                        <span class="label">RESOLUTION</span>
+                        <div class="value-row">
+                            <span id="resolution-val" class="main-value">0 x 0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card visual-verification">
+                    <div class="section-title">Visual Verification</div>
+                    <div class="debug-img-container">
+                        <img id="debug-img" src="" alt="Calibration Debug View">
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Toast for notifications -->
+    <div id="toast" class="toast">Copied to clipboard!</div>
+
+    <script type="py" config='{
+        "packages": ["numpy", "opencv-python", "scipy", "matplotlib"],
+        "files": {
+            "calibration_core.py": "./calibration_core.py"
+        }
+    }'>
+from pyodide.http import pyfetch
+from pyodide.ffi import create_proxy
+from js import document, Uint8Array, window, FileReader, JSON
+import calibration_core
+import io
+
+selected_file_data = None
+
+async def handle_file(event):
+    global selected_file_data
+    file_list = event.target.files
+    if file_list.length > 0:
+        file = file_list.item(0)
+        array_buffer = await file.array_buffer()
+        selected_file_data = array_buffer.to_bytes()
+        document.querySelector('.upload-card h3').textContent = file.name
+        document.querySelector('.upload-card p').textContent = f"File selected ({len(selected_file_data)//1024} KB)"
+
+async def run_analysis(event):
+    if selected_file_data is None:
+        window.alert("Please select an image first.")
+        return
+        
+    btn = document.getElementById('run-btn')
+    btn.textContent = "Analyzing..."
+    btn.disabled = True
+    
+    try:
+        spacing = float(document.getElementById('spacing-input').value)
+        results = calibration_core.process_image_data(selected_file_data, spacing)
+        
+        if "error" in results:
+            window.alert(f"Error: {results['error']}")
+        else:
+            show_results(results)
+    except Exception as e:
+        window.alert(f"Failed: {str(e)}")
+    finally:
+        btn.textContent = "Run Analysis"
+        btn.disabled = False
+
+def show_results(data):
+    document.getElementById('results-view').style.display = 'block'
+    document.getElementById('scale-val').textContent = f"{data['scale']:.6f}"
+    document.getElementById('tilt-angle-val').textContent = f"{data['tilt_angle']:.2f}°"
+    document.getElementById('resolution-val').textContent = f"{data['width']} x {data['height']}"
+    document.getElementById('debug-img').src = data['debug_img']
+    document.getElementById('results-view').scrollIntoView()
+    
+    # Store in history (simple version for web)
+    add_to_history(data)
+
+def add_to_history(data):
+    # This is just for the current session in the web version
+    h_list = document.getElementById('history-list')
+    if h_list.querySelector('.empty-msg'):
+        h_list.innerHTML = ''
+    
+    import datetime
+    ts = datetime.datetime.now().strftime("%H:%M:%S")
+    
+    item = document.createElement('div')
+    item.className = 'history-item'
+    item.innerHTML = f"""
+        <div class="ts">{ts}</div>
+        <div class="file-name">Measurement</div>
+        <div class="ts">{data['scale']:.4f} \u00b5m/px</div>
+    """
+    h_list.prepend(item)
+
+# Wire up events
+file_input = document.getElementById('file-input')
+file_input.onchange = create_proxy(handle_file)
+
+select_btn = document.getElementById('select-btn')
+select_btn.onclick = create_proxy(lambda e: file_input.click())
+
+run_btn = document.getElementById('run-btn')
+run_btn.onclick = create_proxy(run_analysis)
+
+# Cleanup UI once loaded
+document.getElementById('loading').style.display = 'none'
+run_btn.disabled = False
+run_btn.textContent = "Run Analysis"
+
+# Copy/Close buttons logic in JS below
+    </script>
+
+    <script>
+        // Simple JS for UI interactions
+        document.getElementById('copy-btn').onclick = () => {
+            const val = document.getElementById('scale-val').textContent;
+            navigator.clipboard.writeText(val).then(() => {
+                const toast = document.getElementById('toast');
+                toast.classList.add('show');
+                setTimeout(() => toast.classList.remove('show'), 2000);
+            });
+        };
+        document.getElementById('close-btn').onclick = () => {
+            document.getElementById('results-view').style.display = 'none';
+        };
+
+        // Handle drop zone
+        const dropZone = document.getElementById('drop-zone');
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            if (e.dataTransfer.files.length > 0) {
+                document.getElementById('file-input').files = e.dataTransfer.files;
+                document.getElementById('file-input').dispatchEvent(new Event('change'));
+            }
+        });
+    </script>
+</body>
+</html>

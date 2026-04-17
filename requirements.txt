@@ -1,0 +1,6 @@
+Flask
+Werkzeug
+opencv-python
+numpy
+matplotlib
+scipy
