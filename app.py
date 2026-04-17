@@ -372,7 +372,29 @@ def analyze():
     # Final safety: Ensure no NaN values in JSON
     results = json.loads(json.dumps(results, default=lambda x: 0.0 if isinstance(x, float) and (np.isnan(x) or np.isinf(x)) else x))
 
-    # Skip memory/history update
+    # Update ephemeral memory (Numbers only, no images)
+    memory_path = Path(app.config['MEMORY_FILE'])
+    memory = []
+    if memory_path.exists():
+        try: 
+            raw_text = memory_path.read_text()
+            memory = json.loads(raw_text.replace('NaN', '0.0'))
+        except: pass
+
+    # Only keeping relevant metadata, no image paths or debug URLs
+    entry = {
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "file": filename,
+        "width": int(results['width']),
+        "height": int(results['height']),
+        "tilt_angle": results['tilt_angle'],
+        "scale_um_per_px": float(results['SCALE_UM_PER_PX']),
+        "debug_url": None  # DO NOT STORE IMAGE
+    }
+    memory.append(entry)
+    memory_path.write_text(json.dumps(memory, indent=2))
+    
+    results['history'] = memory[::-1]
     return jsonify(results)
 
 @app.route('/history/delete', methods=['POST'])

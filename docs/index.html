@@ -45,7 +45,7 @@
                 <h1>LiveRuler <span style="font-size: 0.6rem; color: var(--accent); vertical-align: super;">WEB</span></h1>
                 <p style="font-size: 0.55rem; color: var(--text-dim); margin-top: -15px; margin-left: 45px; font-weight: 600;">by Precisometer</p>
             </div>
-            <nav class="history-panel" style="display: none;">
+            <nav class="history-panel">
                 <div class="section-title">Calibration History</div>
                 <div id="history-list" class="history-list">
                     <div class="empty-msg">No calibration yet</div>
@@ -206,11 +206,29 @@ def show_results(data):
         document.getElementById('resolution-val').textContent = f"{data['width']} x {data['height']}"
         document.getElementById( 'debug-img').src = data['debug_img']
         document.getElementById('results-view').scrollIntoView()
+        add_to_history(data)
     except Exception as e:
         print(f"Error showing results: {str(e)}")
 
 def add_to_history(data):
-    pass
+    try:
+        h_list = document.getElementById('history-list')
+        if h_list.querySelector('.empty-msg'):
+            h_list.innerHTML = ''
+        
+        import datetime
+        ts = datetime.datetime.now().strftime("%H:%M:%S")
+        
+        item = document.createElement('div')
+        item.className = 'history-item'
+        # Only keeping scale and timestamp, no image
+        item.innerHTML = f"""
+            <div class="ts">{ts}</div>
+            <div class="file-name">Measurement</div>
+            <div class="ts" style="color: var(--accent); font-weight: 700;">{data['scale']:.6f} \u00b5m/px</div>
+        """
+        h_list.prepend(item)
+    except: pass
 
 # Wire up events using addEventListener for better reliability
 file_input = document.getElementById('file-input')
