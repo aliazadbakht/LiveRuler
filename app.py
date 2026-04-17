@@ -321,6 +321,8 @@ def analyze_image(img_path, target_type, spacing_um):
     plt.savefig(debug_path, bbox_inches='tight', dpi=120, facecolor='#121212')
     plt.close()
     
+    # Remove results from server after a short delay (or immediately)
+    # For now, we will return the result normally but stop saving to memory.
     res['debug_url'] = f"/static/uploads/{debug_name}"
     return res
 
@@ -370,35 +372,7 @@ def analyze():
     # Final safety: Ensure no NaN values in JSON
     results = json.loads(json.dumps(results, default=lambda x: 0.0 if isinstance(x, float) and (np.isnan(x) or np.isinf(x)) else x))
 
-    # Update memory
-    memory_path = Path(app.config['MEMORY_FILE'])
-    memory = []
-    if memory_path.exists():
-        try: 
-            raw_text = memory_path.read_text()
-            memory = json.loads(raw_text.replace('NaN', '0.0'))
-        except: pass
-
-    # Drop stale outlier records so old broken calibration values do not persist.
-    memory = [item for item in memory if history_scale(item) is not None]
-    
-    entry = {
-        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-        "file": filename,
-        "width": int(results['width']),
-        "height": int(results['height']),
-        "tilt_angle": results['tilt_angle'],
-        "debug_url": results['debug_url'],
-        "type": target_type,
-        "scale_um_per_px": float(results.get('SCALE_UM_PER_PX', results['SCALE_X'])),
-        "scale_x": float(results['SCALE_X']),
-        "scale_y": float(results['SCALE_Y']),
-        "mean_scale": float((results['SCALE_X'] + results['SCALE_Y']) / 2)
-    }
-    memory.append(entry)
-    memory_path.write_text(json.dumps(memory, indent=2))
-    
-    results['history'] = memory[::-1] # Newest first
+    # Skip memory/history update
     return jsonify(results)
 
 @app.route('/history/delete', methods=['POST'])
