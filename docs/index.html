@@ -151,16 +151,17 @@ selected_file_data = None
 async def handle_file(event):
     global selected_file_data
     try:
-        file_list = event.target.files
-        if file_list.length > 0:
-            file = file_list.item(0)
+        # Get the JS file object directly
+        files = event.target.files
+        if files.length > 0:
+            file = files[0]
             print(f"File selected: {file.name}")
             
-            # Show a temporary loading state
             document.querySelector('.upload-card h3').textContent = "Reading file..."
             
-            array_buffer = await file.array_buffer()
-            selected_file_data = array_buffer.to_bytes()
+            # Use the correct JS method name (camelCase)
+            js_buffer = await file.arrayBuffer()
+            selected_file_data = js_buffer.to_bytes()
             
             document.querySelector('.upload-card h3').textContent = file.name
             document.querySelector('.upload-card p').textContent = f"File ready ({len(selected_file_data)//1024} KB)"
