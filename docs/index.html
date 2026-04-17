@@ -141,9 +141,8 @@
             "calibration_core.py": "./calibration_core.py"
         }
     }'>
-from pyodide.http import pyfetch
 from pyodide.ffi import create_proxy
-from js import document, Uint8Array, window, FileReader, JSON
+from js import document, window, Uint8Array
 import calibration_core
 import io
 
@@ -151,13 +150,24 @@ selected_file_data = None
 
 async def handle_file(event):
     global selected_file_data
-    file_list = event.target.files
-    if file_list.length > 0:
-        file = file_list.item(0)
-        array_buffer = await file.array_buffer()
-        selected_file_data = array_buffer.to_bytes()
-        document.querySelector('.upload-card h3').textContent = file.name
-        document.querySelector('.upload-card p').textContent = f"File selected ({len(selected_file_data)//1024} KB)"
+    try:
+        file_list = event.target.files
+        if file_list.length > 0:
+            file = file_list.item(0)
+            print(f"File selected: {file.name}")
+            
+            # Show a temporary loading state
+            document.querySelector('.upload-card h3').textContent = "Reading file..."
+            
+            array_buffer = await file.array_buffer()
+            selected_file_data = array_buffer.to_bytes()
+            
+            document.querySelector('.upload-card h3').textContent = file.name
+            document.querySelector('.upload-card p').textContent = f"File ready ({len(selected_file_data)//1024} KB)"
+            print("File data loaded successfully.")
+    except Exception as e:
+        print(f"Error handling file: {str(e)}")
+        window.alert(f"Error reading file: {str(e)}")
 
 async def run_analysis(event):
     if selected_file_data is None:
@@ -170,61 +180,69 @@ async def run_analysis(event):
     
     try:
         spacing = float(document.getElementById('spacing-input').value)
+        print(f"Starting analysis with spacing: {spacing}um")
+        
         results = calibration_core.process_image_data(selected_file_data, spacing)
         
         if "error" in results:
+            print(f"Analysis error: {results['error']}")
             window.alert(f"Error: {results['error']}")
         else:
+            print("Analysis successful.")
             show_results(results)
     except Exception as e:
+        print(f"Analysis failed: {str(e)}")
         window.alert(f"Failed: {str(e)}")
     finally:
         btn.textContent = "Run Analysis"
         btn.disabled = False
 
 def show_results(data):
-    document.getElementById('results-view').style.display = 'block'
-    document.getElementById('scale-val').textContent = f"{data['scale']:.6f}"
-    document.getElementById('tilt-angle-val').textContent = f"{data['tilt_angle']:.2f}°"
-    document.getElementById('resolution-val').textContent = f"{data['width']} x {data['height']}"
-    document.getElementById('debug-img').src = data['debug_img']
-    document.getElementById('results-view').scrollIntoView()
-    
-    # Store in history (simple version for web)
-    add_to_history(data)
+    try:
+        document.getElementById('results-view').style.display = 'block'
+        document.getElementById('scale-val').textContent = f"{data['scale']:.6f}"
+        document.getElementById('tilt-angle-val').textContent = f"{data['tilt_angle']:.2f}°"
+        document.getElementById('resolution-val').textContent = f"{data['width']} x {data['height']}"
+        document.getElementById( 'debug-img').src = data['debug_img']
+        document.getElementById('results-view').scrollIntoView()
+        add_to_history(data)
+    except Exception as e:
+        print(f"Error showing results: {str(e)}")
 
 def add_to_history(data):
-    # This is just for the current session in the web version
-    h_list = document.getElementById('history-list')
-    if h_list.querySelector('.empty-msg'):
-        h_list.innerHTML = ''
-    
-    import datetime
-    ts = datetime.datetime.now().strftime("%H:%M:%S")
-    
-    item = document.createElement('div')
-    item.className = 'history-item'
-    item.innerHTML = f"""
-        <div class="ts">{ts}</div>
-        <div class="file-name">Measurement</div>
-        <div class="ts">{data['scale']:.4f} \u00b5m/px</div>
-    """
-    h_list.prepend(item)
+    try:
+        h_list = document.getElementById('history-list')
+        if h_list.querySelector('.empty-msg'):
+            h_list.innerHTML = ''
+        
+        import datetime
+        ts = datetime.datetime.now().strftime("%H:%M:%S")
+        
+        item = document.createElement('div')
+        item.className = 'history-item'
+        item.innerHTML = f"""
+            <div class="ts">{ts}</div>
+            <div class="file-name">Measurement</div>
+            <div class="ts">{data['scale']:.4f} \u00b5m/px</div>
+        """
+        h_list.prepend(item)
+    except: pass
 
-# Wire up events
+# Wire up events using addEventListener for better reliability
 file_input = document.getElementById('file-input')
-file_input.onchange = create_proxy(handle_file)
+file_input.addEventListener("change", create_proxy(handle_file))
 
 select_btn = document.getElementById('select-btn')
-select_btn.onclick = create_proxy(lambda e: file_input.click())
+select_btn.addEventListener("click", create_proxy(lambda e: file_input.click()))
 
 run_btn = document.getElementById('run-btn')
-run_btn.onclick = create_proxy(run_analysis)
+run_btn.addEventListener("click", create_proxy(run_analysis))
 
 # Cleanup UI once loaded
 document.getElementById('loading').style.display = 'none'
 run_btn.disabled = False
 run_btn.textContent = "Run Analysis"
+print("LiveRuler Python Runtime Ready.")
 
 # Copy/Close buttons logic in JS below
     </script>
