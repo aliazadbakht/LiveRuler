@@ -1,42 +1,79 @@
-# LiveRuler 📏 — *by Precisometer*
+<p align="center">
+  <img src="static/precisometer_logo.png" width="400" alt="LiveRuler Logo">
+</p>
 
-**LiveRuler** is a high-precision microscope calibration dashboard. It helps you calculate the exact **pixel-to-micron scale** of your microscope images using automated image processing (FFT and Autocorrelation).
+# 📏 LiveRuler — *High-Precision Calibration Dashboard*
 
-![LiveRuler Logo](static/precisometer_logo.png)
+[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Flask](https://img.shields.io/badge/Framework-Flask-lightgrey.svg)](https://flask.palletsprojects.com/)
+[![WebAssembly](https://img.shields.io/badge/Runtime-PyScript-orange.svg)](https://pyscript.net/)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-## 🌟 Key Features
-- **Automated Alignment**: Automatically detects the rotation/tilt of your ruler or grid.
-- **Precision Calculation**: Uses frequency-domain analysis (FFT) to find the exact spacing of microscopic markings.
-- **Visual Verification**: Provides a power spectrum visualization and an aligned debug view to guarantee accuracy.
-- **Dual Mode**: Works for both 10µm line rulers and 100µm grids.
-- **Web Version**: Host it on GitHub Pages for a zero-install, serverless experience.
+### 🔗 [Try the Live Web Version](https://aliazadbakht.github.io/LiveRuler/)
 
-## 🚀 Quick Start (Local Desktop)
+**LiveRuler** is a professional-grade microscope calibration suite designed by **Precisometer**. It automates the tedious process of calculating the **pixel-to-micron scale** (µm/px) for optical microscopy and material science imaging.
 
-1. **Install dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-2. **Run the dashboard**:
-   ```bash
-   python app.py
-   ```
-   The dashboard will automatically open in your web browser at `http://127.0.0.1:5001`.
-
-## 🌐 Web Version (GitHub Pages)
-
-You can view the web-ready version in the `/web_version` folder. This version uses **PyScript** to run the Python processing entirely in the visitor's browser.
-
-**To host on GitHub:**
-1. Push this repo to GitHub.
-2. Go to **Settings > Pages**.
-3. Point it to the `/web_version` directory.
-
-## 🛠 Tech Stack
-- **Backend**: Python, Flask (for desktop), OpenCV, NumPy, SciPy, Matplotlib.
-- **Web Frontend**: HTML5, Vanilla CSS (Glassmorphism), JavaScript.
-- **WebAssembly**: PyScript (for the serverless version).
+By combining traditional computer vision with frequency-domain analysis, LiveRuler provides robust, sub-pixel accuracy that resists lighting noise and sample tilt.
 
 ---
-*Developed by **Precisometer** for precision microscopy and material science calibration.*
+
+## ✨ Key Features
+
+- **🎯 Automated Alignment**: Uses Hough Transform and FFT power maximization to automatically detect and correct sample rotation.
+- **🔬 Precise Calibration Engine**: Employs **Autocorrelation (ACF)** for stable period detection, significantly reducing errors from harmonics.
+- **📊 Power Spectrum Visualization**: Real-time FFT preview allows users to visually verify the detected frequency peaks.
+- **🧪 Dual Mode Support**: Pre-configured profiles for **10µm Stage Micrometers** and **100µm Grids**.
+- **🌐 Live Web Version**: Available at [aliazadbakht.github.io/LiveRuler](https://aliazadbakht.github.io/LiveRuler/)—runs entirely in the browser via **WebAssembly (PyScript)**.
+- **📅 History Tracking**: Built-in persistence to track calibration records across sessions.
+
+---
+
+## 🧠 The Science of Precision
+
+LiveRuler doesn't just "count pixels." It uses a multi-stage signal processing pipeline to ensure consistency:
+
+1.  **Orientation Estimation**: A global scan using `Canny` edges and `HoughLines` provides a rough tilt angle.
+2.  **Rotation Refinement**: The image is iteratively rotated in 0.1° increments to maximize the density of the FFT power spectrum peaks.
+3.  **Artifact Removal**: High-pass filtering suppresses uneven illumination and surface reflections.
+4.  **Autocorrelation Analysis**: Unlike raw FFT which can be sensitive to noise, autocorrelation identifies the fundamental physical spacing of your ruler markings, making it immune to DC bias and local defects.
+
+---
+
+## 🚀 Getting Started (Local Desktop)
+For laboratory environments requiring local image storage.
+
+1.  **Clone & Prepare**:
+    ```bash
+    git clone https://github.com/Precisometer/LiveRuler.git
+    cd LiveRuler
+    ```
+
+2.  **Install Dependencies**:
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+3.  **Launch**:
+    ```bash
+    python app.py
+    ```
+    *The dashboard will automatically open at `http://127.0.0.1:5001`.*
+
+---
+
+## 🛠 Tech Stack
+
+- **Backend Logic**: OpenCV, NumPy, SciPy, Matplotlib
+- **Web Interface**: Vanilla JS, Glassmorphism CSS, HTML5
+- **Server**: Flask (Desktop) / PyScript (Web)
+
+---
+
+## 🏢 About Precisometer
+Precisometer specializes in high-accuracy measurement solutions for microscopy and micro-fabrication. We bridge the gap between academic research and industrial reliability.
+
+---
+<p align="center">
+  Released under the MIT License • Built with ❤️ by <b>Precisometer</b>
+</p>
+
