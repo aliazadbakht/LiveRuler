@@ -40,11 +40,16 @@ def estimate_global_rotation(gray):
     """Detect dominant lines and return a rough angle in degrees."""
     # Downsample slightly for speed
     h, w = gray.shape
-    if w > 1000:
-        gray = cv2.resize(gray, (0, 0), fx=0.5, fy=0.5)
+    target_w = 600
+    if w > target_w:
+        scale_f = target_w / w
+        gray_small = cv2.resize(gray, (target_w, int(h * scale_f)))
+    else:
+        gray_small = gray
     
-    edges = cv2.Canny(gray.astype(np.uint8), 50, 150, apertureSize=3)
-    lines = cv2.HoughLines(edges, 1, np.pi/180, 80)
+    edges = cv2.Canny(gray_small.astype(np.uint8), 50, 150, apertureSize=3)
+    thresh = int(min(gray_small.shape) * 0.20)
+    lines = cv2.HoughLines(edges, 1, np.pi/180, thresh)
     
     if lines is None:
         return 0.0
@@ -100,9 +105,11 @@ def estimate_period_autocorr(profile, max_fraction=0.4):
     if len(peaks) > 0:
         peaks = peaks + min_lag
         prominences = props.get('prominences', np.ones(len(peaks)))
-        # Prefer the earliest peak that is still strong.
-        best_idx = int(peaks[np.argmax(prominences / np.maximum(peaks, 1))])
-        return float(best_idx)
+        # Find the first peak with prominence >= 60% of the maximum prominence
+        max_prom = np.max(prominences)
+        for p, prom in zip(peaks, prominences):
+            if prom >= 0.6 * max_prom:
+                return float(p)
 
     # Fallback: look for the strongest FFT candidate, but bias toward longer periods
     # so that harmonics are less likely to win.
@@ -143,7 +150,8 @@ def find_exact_rotation(roi, rough_angle):
     center = (w/2, h/2)
     
     # Scan in 0.1 degree increments around the rough estimate
-    for angle in np.linspace(rough_angle - 1.5, rough_angle + 1.5, 31):
+    # ±7° range ensures we find the true alignment even when the Hough rough estimate is off by ~5°
+    for angle in np.linspace(rough_angle - 7.0, rough_angle + 7.0, 141):
         M = cv2.getRotationMatrix2D(center, angle, 1.0)
         rotated = cv2.warpAffine(roi, M, (w, h), flags=cv2.INTER_LINEAR)
         
@@ -224,10 +232,10 @@ def analyze_image(img_path, target_type, spacing_um):
     img_rot = cv2.warpAffine(img, M, (w, h), flags=cv2.INTER_CUBIC)
     gray_rot = cv2.warpAffine(gray, M, (w, h), flags=cv2.INTER_CUBIC)
     
-    # 4. Extract ROI from rotated image
+    # 4. Extract ROI from rotated image and smooth profiles to suppress aliasing noise
     roi = gray_rot[int(h*0.2):int(h*0.8), int(w*0.2):int(w*0.8)]
-    prof_x = roi.mean(axis=0)
-    prof_y = roi.mean(axis=1)
+    prof_x = cv2.GaussianBlur(roi.mean(axis=0).reshape(1, -1), (0, 0), 0.8).flatten()
+    prof_y = cv2.GaussianBlur(roi.mean(axis=1).reshape(1, -1), (0, 0), 0.8).flatten()
     
     res = {}
     res['tilt_angle'] = round(float(final_angle), 2)
@@ -237,45 +245,51 @@ def analyze_image(img_path, target_type, spacing_um):
     px_fft, f_x, P_x, cand_x = dominant_period(prof_x)
     py_fft, f_y, P_y, cand_y = dominant_period(prof_y)
 
+    # Run autocorrelation to find robust fundamental period estimates for both axes
+    ac_periods = {
+        'X': estimate_period_autocorr(prof_x),
+        'Y': estimate_period_autocorr(prof_y)
+    }
+
     all_candidates = []
     for axis_name, cands in (('X', cand_x), ('Y', cand_y)):
+        ac_per = ac_periods[axis_name]
         for c in cands:
             scale_val = float(spacing_um / c['period'])
+            # A candidate is the fundamental if it matches the autocorrelation period (within 15%)
+            is_fundamental = True
+            if ac_per is not None:
+                is_fundamental = abs(c['period'] - ac_per) / ac_per <= 0.15
+            
             all_candidates.append({
                 'axis': axis_name,
                 'period': c['period'],
                 'scale': scale_val,
                 'power': c['power'],
                 'frequency': c['frequency'],
+                'is_fundamental': is_fundamental
             })
 
-    # Prefer the calibration candidate that is both strong and physically plausible.
-    plausible = [c for c in all_candidates if 0.4 <= c['scale'] <= 2.0]
-    if plausible:
-        expected_scale = 0.95
-        best = max(
-            plausible,
-            key=lambda c: (
-                c['power'] / (1.0 + abs(c['scale'] - expected_scale) / 0.25),
-                c['power'],
-            ),
-        )
+    fundamentals = [c for c in all_candidates if c['is_fundamental']]
+    if fundamentals:
+        best = max(fundamentals, key=lambda c: c['power'])
     elif all_candidates:
         best = max(all_candidates, key=lambda c: c['power'])
     else:
         # Final fallback: use the autocorrelation estimate from whichever axis has one.
-        px = estimate_period_autocorr(prof_x)
-        py = estimate_period_autocorr(prof_y)
-        fallback_periods = [p for p in (px, py) if p and p > 0]
+        px = ac_periods['X']
+        py = ac_periods['Y']
+        fallback_periods = [(axis, p) for axis, p in [('X', px), ('Y', py)] if p and p > 0]
         if not fallback_periods:
             return {"error": "No ruler or grid divisions detected after alignment."}
-        best_scale = float(np.median([spacing_um / p for p in fallback_periods]))
+        best_axis, best_p = fallback_periods[0]
+        best_scale = float(spacing_um / best_p)
         best = {
-            'axis': 'XY',
-            'period': float(spacing_um / best_scale),
+            'axis': best_axis,
+            'period': float(best_p),
             'scale': best_scale,
             'power': 0.0,
-            'frequency': 0.0,
+            'frequency': 1.0 / best_p,
         }
 
     scale = float(best['scale'])

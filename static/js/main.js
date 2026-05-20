@@ -180,22 +180,7 @@ async function deleteHistory(ts) {
         if (data.error) {
             alert('Error: ' + data.error);
         } else {
-            // Re-render history list with the new data
-            const historyList = document.getElementById('history-list');
-            if (data.history.length === 0) {
-                historyList.innerHTML = '<div class="empty-msg">No calibration yet</div>';
-            } else {
-                historyList.innerHTML = data.history.map(item => `
-                    <div class="history-item">
-                        <div class="ts">${item.timestamp}</div>
-                        <div class="file-name">${item.file}</div>
-                        <div class="ts">${(item.scale_um_per_px ?? item.mean_scale ?? item.scale_x ?? 0).toFixed(4)} \u00b5m/px</div>
-                        <div class="delete-action" onclick="deleteHistory('${item.timestamp}')">
-                            <span class="trash-icon"></span>
-                        </div>
-                    </div>
-                `).join('');
-            }
+            renderHistory(data.history);
             showToast('Record deleted.');
         }
     } catch (e) {
